@@ -10,7 +10,7 @@ See LICENSE.
 
 Requirements
 ------------
-.NET 4 Client Profile, msbuild.
+.NET 4 Client Profile, PowerShell.
 
 Installation
 ------------
