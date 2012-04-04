@@ -19,14 +19,15 @@ Build .sln file with msbuild or Visual Studio (2010 or higher).
 Usage
 -----
 OnFileChange --help will present a smörgåsbord of options.
+
 If you need to recycle application pools, you'll need to run the tool in an
 elevated command prompt/PowerShell.
 
 Examples
 --------
-OnFileChange --recycle SomeAppPool --filter "\.config$"
-OnFileChange --action "Write-Host $file $changeType" --files some.txt,other.txt
-OnFileChange -a "msbuild myproj.csproj" -ft "\.(resx|cs)$" --delay 1000
+    OnFileChange --recycle SomeAppPool --filter "\.config$"
+    OnFileChange --action "Write-Host $file $changeType" --files some.txt,other.txt
+    OnFileChange -a "msbuild myproj.csproj" -ft "\.(resx|cs)$" --delay 1000
 
 Feedback
 --------
