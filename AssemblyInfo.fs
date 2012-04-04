@@ -8,11 +8,11 @@ open System.Runtime.InteropServices
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [<assembly: AssemblyTitle("OnFileChange")>]
-[<assembly: AssemblyDescription("")>]
+[<assembly: AssemblyDescription("A tool that does stuff when files change.")>]
 [<assembly: AssemblyConfiguration("")>]
 [<assembly: AssemblyCompany("")>]
 [<assembly: AssemblyProduct("OnFileChange")>]
-[<assembly: AssemblyCopyright("Copyright ©  2011")>]
+[<assembly: AssemblyCopyright("Copyright © Niklas Bergius")>]
 [<assembly: AssemblyTrademark("")>]
 
 // Setting ComVisible to false makes the types in this assembly not visible 
@@ -33,7 +33,7 @@ open System.Runtime.InteropServices
 // You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
-[<assembly: AssemblyVersion("1.0.0.0")>]
-[<assembly: AssemblyFileVersion("1.0.0.0")>]
+[<assembly: AssemblyVersion("0.1.0.0")>]
+[<assembly: AssemblyFileVersion("0.1.0.0")>]
 
 ()

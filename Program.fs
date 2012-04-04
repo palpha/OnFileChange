@@ -6,4 +6,4 @@ module Program =
 
     [<EntryPoint>]
     let Main(args) =
-        MyConsole.Run args
+        int(MyConsole.Run args)
