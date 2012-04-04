@@ -14,10 +14,12 @@ module MyConsole =
         | Ok = 0
         | ArgumentMissing = 1
         | NothingToWatch = 2
+        | InvalidRegularExpression = 3
 
-    let mutable action = ""
+    let mutable (action : string) = null
     let mutable useProfile = false
     let mutable delay = 100
+    let mutable pattern = String.Empty
     let eventTimers = ConcurrentDictionary<string, Timer>()
 
     let runCommand cmd changeType file =
@@ -42,12 +44,13 @@ module MyConsole =
         eventTimers.TryRemove(fullPath) |> ignore
 
     let queueEvent (args : FileSystemEventArgs) =
-        let timer =
-            new Timer(
-                (fun x -> handleEvent args.ChangeType args.FullPath),
-                null, delay, Timeout.Infinite)
-        if eventTimers.TryAdd(args.FullPath, timer) = false then
-            timer.Dispose()
+        if pattern = null || Regex.IsMatch(args.FullPath, pattern) then
+            let timer =
+                new Timer(
+                    (fun x -> handleEvent args.ChangeType args.FullPath),
+                    null, delay, Timeout.Infinite)
+            if eventTimers.TryAdd(args.FullPath, timer) = false then
+                timer.Dispose()
         
     let onChange (args : FileSystemEventArgs) =
         queueEvent args
@@ -59,8 +62,14 @@ module MyConsole =
         |> Seq.map (fun x -> x.DirectoryName, x.Name, false)
 
     let watchFile (path, filter, watchSubdir) =
-        Console.WriteLine ("Watching {0} in {1}", filter, path)
-        let fsw = new FileSystemWatcher(path, filter)
+        let effectiveFilter =
+            if filter = null then pattern
+            else filter
+        Console.WriteLine ("Watching {0} in {1}", effectiveFilter, path)
+        let fsw = new FileSystemWatcher()
+        fsw.Path <- path
+        if filter <> null then
+            fsw.Filter <- filter
         fsw.Changed.Add(onChange)
         fsw.Deleted.Add(onChange)
         fsw.Created.Add(onChange)
@@ -79,7 +88,8 @@ module MyConsole =
             |> Seq.map watchFile
             |> Seq.iter watchers.Add
         else
-            watchFile (Environment.CurrentDirectory, parsedArgs.Item("filter"), true)
+            pattern <- parsedArgs.Item("filter")
+            watchFile (Environment.CurrentDirectory, null, true)
             |> watchers.Add
 
         if watchers.Count = 0 then
@@ -101,11 +111,20 @@ module MyConsole =
         
         parsedArgs
 
+    let validateFilter (parsedArgs : Dictionary<string, string>) =
+        if parsedArgs.ContainsKey("filter") then
+            try
+                Regex.IsMatch(String.Empty, parsedArgs.Item("filter")) |> ignore
+                true
+            with
+            | _ -> false
+        else true
+
     let Run args =
         let defs = [
                 { ArgInfo.Command="files"; ArgInfo.Alias="f"; Description="List of files to watch" }
-                { ArgInfo.Command="filter"; ArgInfo.Alias="ft"; Description="Filename filter" }
-                { ArgInfo.Command="action"; ArgInfo.Alias="a"; Description="PowerShell command" }
+                { ArgInfo.Command="filter"; ArgInfo.Alias="ft"; Description="Filename filter (.NET regular expression)" }
+                { ArgInfo.Command="action"; ArgInfo.Alias="a"; Description="PowerShell command ($changeType and $file will exist)" }
                 { ArgInfo.Command="recycle"; ArgInfo.Alias="r"; Description="Name of IIS Application Pool to recycle" }
                 { ArgInfo.Command="delay"; ArgInfo.Alias="d"; Description="Milliseconds to wait before reacting to a change" }
                 { ArgInfo.Command="profile"; ArgInfo.Alias="p"; Description="Run PowerShell command without -NoProfile" }
@@ -126,6 +145,9 @@ module MyConsole =
         elif not (parsedArgs.ContainsKey("files") || parsedArgs.ContainsKey("filter")) then
             Console.WriteLine "Please specify either --files or --filter."
             returnCodes.ArgumentMissing
+        elif not (validateFilter parsedArgs) then
+            Console.WriteLine "Please specify --filter as a valid regular expression."
+            returnCodes.InvalidRegularExpression
         else
             parsedArgs
             |> setupAction
