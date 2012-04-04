@@ -6,6 +6,7 @@ open System.Collections.Concurrent
 open System.IO
 open System.Diagnostics
 open System.Threading
+open System.Text.RegularExpressions
 open Arguments
 
 module MyConsole =
@@ -15,14 +16,21 @@ module MyConsole =
         | NothingToWatch = 2
 
     let mutable action = ""
+    let mutable useProfile = false
     let mutable delay = 100
     let eventTimers = ConcurrentDictionary<string, Timer>()
 
-    let buildEventKey changeType fullPath =
-        sprintf "%s%s" (changeType.ToString()) fullPath
+    let runCommand cmd changeType file =
+        // strip start and end quotes
+        let mutable bareCmd = Regex.Replace(cmd, "(^\"|\"$)", String.Empty)
+        
+        // wrap in script block with params
+        bareCmd <- "\"& { param ($changeType, $file) " + bareCmd + " } '" + changeType + "' '" + file + "' \""
 
-    let runCommand cmd =
-        let psi = new System.Diagnostics.ProcessStartInfo("powershell", "-command " + cmd)
+        let mutable commandStr = "-command " + bareCmd
+        if not useProfile then
+            commandStr <- "-noprofile " + commandStr
+        let psi = new System.Diagnostics.ProcessStartInfo("powershell", commandStr)
         psi.UseShellExecute <- false
         let p = System.Diagnostics.Process.Start(psi)
         p.WaitForExit()
@@ -30,17 +38,15 @@ module MyConsole =
 
     let handleEvent changeType fullPath =
         Console.WriteLine ("{0}: {1}", changeType, fullPath)
-        runCommand action |> ignore
-        let eventKey = buildEventKey changeType fullPath
-        eventTimers.TryRemove(eventKey) |> ignore
+        runCommand action (changeType.ToString()) fullPath |> ignore
+        eventTimers.TryRemove(fullPath) |> ignore
 
     let queueEvent (args : FileSystemEventArgs) =
-        let eventKey = buildEventKey args.ChangeType args.FullPath
         let timer =
             new Timer(
                 (fun x -> handleEvent args.ChangeType args.FullPath),
                 null, delay, Timeout.Infinite)
-        if eventTimers.TryAdd(eventKey, timer) = false then
+        if eventTimers.TryAdd(args.FullPath, timer) = false then
             timer.Dispose()
         
     let onChange (args : FileSystemEventArgs) =
@@ -56,6 +62,9 @@ module MyConsole =
         Console.WriteLine ("Watching {0} in {1}", filter, path)
         let fsw = new FileSystemWatcher(path, filter)
         fsw.Changed.Add(onChange)
+        fsw.Deleted.Add(onChange)
+        fsw.Created.Add(onChange)
+        fsw.Renamed.Add(onChange)
         fsw.NotifyFilter <- NotifyFilters.FileName ||| NotifyFilters.LastWrite
         fsw.IncludeSubdirectories <- watchSubdir
         fsw.EnableRaisingEvents <- true
@@ -99,12 +108,15 @@ module MyConsole =
                 { ArgInfo.Command="action"; ArgInfo.Alias="a"; Description="PowerShell command" }
                 { ArgInfo.Command="recycle"; ArgInfo.Alias="r"; Description="Name of IIS Application Pool to recycle" }
                 { ArgInfo.Command="delay"; ArgInfo.Alias="d"; Description="Milliseconds to wait before reacting to a change" }
+                { ArgInfo.Command="profile"; ArgInfo.Alias="p"; Description="Run PowerShell command without -NoProfile" }
             ]
 
         let parsedArgs = Arguments.ParseArgs args defs
 
         if parsedArgs.ContainsKey("delay") && Int32.TryParse(parsedArgs.Item("delay"), &delay) = false then
             delay <- 100
+        if parsedArgs.ContainsKey("profile") then
+            useProfile <- true
 
         if parsedArgs.ContainsKey("help") then
             returnCodes.Ok
