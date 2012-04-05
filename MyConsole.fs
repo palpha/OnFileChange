@@ -107,7 +107,7 @@ module MyConsole =
             action <- parsedArgs.Item("action")
         else
             let poolName = parsedArgs.Item("recycle")
-            action <- sprintf "\"& $env:windir\\system32\\inetsrv\\appcmd recycle apppool /apppool.name:%s\"" poolName
+            action <- sprintf "& \"$env:windir\\system32\\inetsrv\\appcmd recycle apppool /apppool.name:'%s'\"" poolName
         
         parsedArgs
 
